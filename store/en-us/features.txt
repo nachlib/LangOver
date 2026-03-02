@@ -1,0 +1,8 @@
+- Instant Hebrew / English text conversion
+- Select text + middle-click = fixed
+- 100% offline - no data leaves your PC
+- Zero dependencies - single portable EXE
+- Smart language detection
+- Runs silently in system tray
+- Open source (MIT) on GitHub
+- Sigstore signed and VirusTotal verified

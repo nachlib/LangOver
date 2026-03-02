@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(langover VERSION 1.0.0 LANGUAGES C RC)
+project(langover VERSION 1.1.0 LANGUAGES C RC)
 
 # ── Build settings ──
 set(CMAKE_C_STANDARD 11)

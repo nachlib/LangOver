@@ -441,7 +441,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 L"If no text is selected, middle-click works normally.\n\n"
                 L"Example: asdf \x2192 \x05E9\x05D3\x05D2\x05DB\n"
                 L"\x05E9\x05D3\x05D2\x05DB \x2192 asdf\n\n"
-                L"https://github.com/AviDuda/langover",
+                L"https://github.com/nachlib/LangOver",
                 L"About LangOver", MB_OK | MB_ICONINFORMATION);
             return 0;
         }

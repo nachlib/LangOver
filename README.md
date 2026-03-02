@@ -2,7 +2,7 @@
 
 **Convert text typed in the wrong keyboard layout — Hebrew ↔ English.**
 
-A tiny, portable Windows app (single `.exe`, no dependencies) that converts selected text between Hebrew and English keyboard layouts.
+A tiny, portable Windows app (single `.exe`, no dependencies) that converts selected text between Hebrew and English keyboard layouts. Also available as **MSIX** for Microsoft Store and sideloading.
 
 **Example:** `asdf` → `שדגכ` &nbsp;|&nbsp; `שדגכ` → `asdf`
 
@@ -10,7 +10,10 @@ A tiny, portable Windows app (single `.exe`, no dependencies) that converts sele
 
 ## Download
 
-Download `langover-x64.exe` (or `langover-x86.exe` for 32-bit) from the [Releases](../../releases) page.
+| Format | x64 | x86 |
+|--------|-----|-----|
+| **Standalone EXE** (no install) | [`langover-x64.exe`](../../releases/latest) | [`langover-x86.exe`](../../releases/latest) |
+| **MSIX** (Store / sideload) | [`langover-x64.msix`](../../releases/latest) | [`langover-x86.msix`](../../releases/latest) |
 
 > All release binaries are signed with [Sigstore](https://www.sigstore.dev/) and include [GitHub artifact attestations](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations).
 > SignPath.io code signing is pending approval.
@@ -71,10 +74,21 @@ The output is `build/Release/langover.exe` — a single, self-contained executab
 │   ├── langover.exe.manifest   # App manifest (DPI, UAC, compat)
 │   ├── langover.ico            # Application icon
 │   └── resource.h              # Resource IDs
+├── msix/
+│   ├── AppxManifest.xml        # MSIX package manifest (Desktop Bridge)
+│   └── Assets/                 # Store tile logos (various sizes)
+├── store/
+│   ├── screenshots/            # Store screenshots (1920×1080)
+│   ├── en-us/                  # English store listing text
+│   ├── he/                     # Hebrew store listing text
+│   └── listing.json            # Store submission metadata
 ├── autohotkey/                 # Alternative lightweight AHK version
 │   ├── langover.ahk
 │   └── README.md
-├── .github/workflows/build.yml # CI: build + release
+├── scripts/
+│   └── generate-store-assets.ps1  # Regenerate logos & screenshots
+├── docs/                       # GitHub Pages site (Hebrew)
+├── .github/workflows/build.yml # CI: build EXE+MSIX, sign, release
 ├── .signpath/                  # SignPath code signing config
 ├── CMakeLists.txt              # Build system
 ├── LICENSE                     # MIT License

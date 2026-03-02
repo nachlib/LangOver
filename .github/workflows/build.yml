@@ -14,10 +14,10 @@ permissions:
 
 jobs:
   # ════════════════════════════════════════════
-  #  Build x64
+  #  Build x64 (EXE + MSIX)
   # ════════════════════════════════════════════
   build:
-    name: Build Windows EXE (x64)
+    name: Build x64 (EXE + MSIX)
     runs-on: windows-latest
 
     steps:
@@ -37,11 +37,49 @@ jobs:
           }
           Get-Item "build/Release/langover.exe" | Select-Object Name, Length
 
-      - name: Compute SHA256
+      - name: Compute SHA256 (EXE)
         run: |
           $hash = (Get-FileHash "build/Release/langover.exe" -Algorithm SHA256).Hash
           Write-Host "SHA256: $hash"
           $hash | Out-File -FilePath "build/Release/langover-x64.sha256" -NoNewline
+
+      # ── MSIX Packaging ──
+      - name: Create MSIX package layout
+        run: |
+          New-Item -ItemType Directory -Path "msix-stage" -Force | Out-Null
+          New-Item -ItemType Directory -Path "msix-stage/Assets" -Force | Out-Null
+
+          # Copy EXE
+          Copy-Item "build/Release/langover.exe" "msix-stage/langover.exe"
+
+          # Copy MSIX assets
+          Copy-Item "msix/Assets/*" "msix-stage/Assets/" -Recurse
+
+          # Generate AppxManifest with correct architecture
+          $manifest = Get-Content "msix/AppxManifest.xml" -Raw
+          $manifest = $manifest -replace 'ARCH_PLACEHOLDER', 'x64'
+          $manifest | Set-Content "msix-stage/AppxManifest.xml" -Encoding UTF8
+
+      - name: Build MSIX package
+        run: |
+          # Find MakeAppx.exe from Windows SDK
+          $sdkPath = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\10.*\x64\makeappx.exe" -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
+          if (!$sdkPath) {
+            throw "MakeAppx.exe not found in Windows SDK"
+          }
+          Write-Host "Using: $($sdkPath.FullName)"
+
+          & $sdkPath.FullName pack /d "msix-stage" /p "build/Release/langover-x64.msix" /o
+          if ($LASTEXITCODE -ne 0) { throw "MakeAppx pack failed" }
+
+          # Verify
+          Get-Item "build/Release/langover-x64.msix" | Select-Object Name, Length
+
+      - name: Compute SHA256 (MSIX)
+        run: |
+          $hash = (Get-FileHash "build/Release/langover-x64.msix" -Algorithm SHA256).Hash
+          Write-Host "SHA256: $hash"
+          $hash | Out-File -FilePath "build/Release/langover-x64-msix.sha256" -NoNewline
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -50,13 +88,15 @@ jobs:
           path: |
             build/Release/langover.exe
             build/Release/langover-x64.sha256
+            build/Release/langover-x64.msix
+            build/Release/langover-x64-msix.sha256
           if-no-files-found: error
 
   # ════════════════════════════════════════════
-  #  Build x86
+  #  Build x86 (EXE + MSIX)
   # ════════════════════════════════════════════
   build-x86:
-    name: Build Windows EXE (x86)
+    name: Build x86 (EXE + MSIX)
     runs-on: windows-latest
 
     steps:
@@ -69,11 +109,40 @@ jobs:
       - name: Build
         run: cmake --build build --config Release
 
-      - name: Compute SHA256
+      - name: Compute SHA256 (EXE)
         run: |
           $hash = (Get-FileHash "build/Release/langover.exe" -Algorithm SHA256).Hash
           Write-Host "SHA256: $hash"
           $hash | Out-File -FilePath "build/Release/langover-x86.sha256" -NoNewline
+
+      # ── MSIX Packaging ──
+      - name: Create MSIX package layout
+        run: |
+          New-Item -ItemType Directory -Path "msix-stage" -Force | Out-Null
+          New-Item -ItemType Directory -Path "msix-stage/Assets" -Force | Out-Null
+
+          Copy-Item "build/Release/langover.exe" "msix-stage/langover.exe"
+          Copy-Item "msix/Assets/*" "msix-stage/Assets/" -Recurse
+
+          $manifest = Get-Content "msix/AppxManifest.xml" -Raw
+          $manifest = $manifest -replace 'ARCH_PLACEHOLDER', 'x86'
+          $manifest | Set-Content "msix-stage/AppxManifest.xml" -Encoding UTF8
+
+      - name: Build MSIX package
+        run: |
+          $sdkPath = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\10.*\x64\makeappx.exe" -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
+          if (!$sdkPath) { throw "MakeAppx.exe not found" }
+          Write-Host "Using: $($sdkPath.FullName)"
+
+          & $sdkPath.FullName pack /d "msix-stage" /p "build/Release/langover-x86.msix" /o
+          if ($LASTEXITCODE -ne 0) { throw "MakeAppx pack failed" }
+          Get-Item "build/Release/langover-x86.msix" | Select-Object Name, Length
+
+      - name: Compute SHA256 (MSIX)
+        run: |
+          $hash = (Get-FileHash "build/Release/langover-x86.msix" -Algorithm SHA256).Hash
+          Write-Host "SHA256: $hash"
+          $hash | Out-File -FilePath "build/Release/langover-x86-msix.sha256" -NoNewline
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -82,6 +151,8 @@ jobs:
           path: |
             build/Release/langover.exe
             build/Release/langover-x86.sha256
+            build/Release/langover-x86.msix
+            build/Release/langover-x86-msix.sha256
           if-no-files-found: error
 
   # ════════════════════════════════════════════
@@ -111,57 +182,64 @@ jobs:
 
       - name: Rename artifacts
         run: |
+          # EXEs
           mv x64/langover.exe langover-x64.exe
           mv x64/langover-x64.sha256 langover-x64.sha256
           mv x86/langover.exe langover-x86.exe
           mv x86/langover-x86.sha256 langover-x86.sha256
+          # MSIXs
+          mv x64/langover-x64.msix langover-x64.msix
+          mv x64/langover-x64-msix.sha256 langover-x64-msix.sha256
+          mv x86/langover-x86.msix langover-x86.msix
+          mv x86/langover-x86-msix.sha256 langover-x86-msix.sha256
 
       # ── Sigstore: keyless signing with cosign ──
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
 
-      - name: Sign with Sigstore (x64)
+      - name: Sign all artifacts with Sigstore
         run: |
-          cosign sign-blob \
-            --yes \
-            --output-signature langover-x64.exe.sig \
-            --output-certificate langover-x64.exe.pem \
-            langover-x64.exe
-
-      - name: Sign with Sigstore (x86)
-        run: |
-          cosign sign-blob \
-            --yes \
-            --output-signature langover-x86.exe.sig \
-            --output-certificate langover-x86.exe.pem \
-            langover-x86.exe
+          for file in langover-x64.exe langover-x86.exe langover-x64.msix langover-x86.msix; do
+            echo "Signing: $file"
+            cosign sign-blob \
+              --yes \
+              --output-signature "${file}.sig" \
+              --output-certificate "${file}.pem" \
+              "$file"
+          done
 
       - name: Verify Sigstore signatures
         run: |
-          cosign verify-blob \
-            --signature langover-x64.exe.sig \
-            --certificate langover-x64.exe.pem \
-            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-            --certificate-identity-regexp "github.com/nachlib/LangOver" \
-            langover-x64.exe
-
-          cosign verify-blob \
-            --signature langover-x86.exe.sig \
-            --certificate langover-x86.exe.pem \
-            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-            --certificate-identity-regexp "github.com/nachlib/LangOver" \
-            langover-x86.exe
+          for file in langover-x64.exe langover-x86.exe langover-x64.msix langover-x86.msix; do
+            echo "Verifying: $file"
+            cosign verify-blob \
+              --signature "${file}.sig" \
+              --certificate "${file}.pem" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+              --certificate-identity-regexp "github.com/nachlib/LangOver" \
+              "$file"
+          done
 
       # ── GitHub Artifact Attestation ──
-      - name: Attest x64 binary
+      - name: Attest x64 EXE
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: langover-x64.exe
 
-      - name: Attest x86 binary
+      - name: Attest x86 EXE
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: langover-x86.exe
+
+      - name: Attest x64 MSIX
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: langover-x64.msix
+
+      - name: Attest x86 MSIX
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: langover-x86.msix
 
       # ── Create Release ──
       - name: Create GitHub Release
@@ -169,11 +247,24 @@ jobs:
         with:
           generate_release_notes: true
           body: |
+            ## What's New in v1.1
+
+            - **MSIX packages** for Microsoft Store and sideloading
+            - Desktop Bridge packaging with `runFullTrust` capability
+            - Store-ready assets, screenshots, and metadata
+            - Optional Windows startup integration
+
+            ## Downloads
+
+            | Format | x64 | x86 |
+            |--------|-----|-----|
+            | **Standalone EXE** (no install) | `langover-x64.exe` | `langover-x86.exe` |
+            | **MSIX** (Store / sideload) | `langover-x64.msix` | `langover-x86.msix` |
+
             ## Verification
 
             ### Sigstore (cosign)
             ```bash
-            # Install cosign: https://docs.sigstore.dev/cosign/system_config/installation/
             cosign verify-blob \
               --signature langover-x64.exe.sig \
               --certificate langover-x64.exe.pem \
@@ -195,6 +286,14 @@ jobs:
             langover-x86.exe.sig
             langover-x86.exe.pem
             langover-x86.sha256
+            langover-x64.msix
+            langover-x64.msix.sig
+            langover-x64.msix.pem
+            langover-x64-msix.sha256
+            langover-x86.msix
+            langover-x86.msix.sig
+            langover-x86.msix.pem
+            langover-x86-msix.sha256
 
   # ════════════════════════════════════════════
   #  SignPath (triggered after release, needs approval)

@@ -1,0 +1,25 @@
+LangOver - Hebrew / English Keyboard Layout Converter
+
+Typed in the wrong language? We've all been there. You start typing and realize the entire sentence came out as gibberish because your keyboard was set to the wrong language.
+
+LangOver fixes this instantly: select the text, middle-click your mouse wheel, and the text is converted to the correct language - Hebrew to English or English to Hebrew.
+
+HOW IT WORKS
+1. Select the wrongly-typed text
+2. Click the mouse wheel (middle button)
+3. Done - text is converted in place
+
+KEY FEATURES
+- Instant conversion - under 200ms, no lag
+- Smart detection - automatically knows if text is Hebrew or English
+- Natural trigger - middle mouse click doesn't break scrolling or other functions
+- Privacy first - 100% offline, no data ever leaves your computer
+- Zero dependencies - single portable EXE, no installation required
+- System tray - runs silently in the background with minimal resources
+- Open source - MIT license, fully auditable code on GitHub
+
+PRIVACY
+LangOver does not collect, store, or transmit any data. All processing happens locally in memory. No internet connection required or used. See our full privacy policy for details.
+
+VERIFIED AND SIGNED
+Every release is cryptographically signed with Sigstore, verified by GitHub Actions, and scanned by VirusTotal (0 detections out of 95+ engines).

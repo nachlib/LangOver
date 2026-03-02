@@ -1,0 +1,35 @@
+{
+  "packageIdentityName": "YOURPUBLISHERID.LangOver",
+  "publisherDisplayName": "LangOver",
+  "privacyPolicyUrl": "https://nachlib.github.io/LangOver/privacy.html",
+  "websiteUrl": "https://nachlib.github.io/LangOver/",
+  "supportUrl": "https://github.com/nachlib/LangOver/issues",
+  "category": "Productivity",
+  "subcategory": "Typing",
+  "ageRating": "3+",
+  "pricing": "Free",
+  "languages": ["en-us", "he-il"],
+  "screenshots": [
+    "screenshots/screenshot-1-before-after.png",
+    "screenshots/screenshot-2-how-it-works.png",
+    "screenshots/screenshot-3-features.png",
+    "screenshots/screenshot-4-hebrew-hero.png"
+  ],
+  "systemRequirements": {
+    "os": "Windows 10 version 1809 (build 17763) or later",
+    "architecture": ["x64", "x86"],
+    "ram": "Minimal (< 5 MB)",
+    "storage": "< 1 MB"
+  },
+  "capabilities": [
+    "runFullTrust - Required for global mouse hook and input simulation"
+  ],
+  "notes": [
+    "Update packageIdentityName and publisherDisplayName with your Partner Center values.",
+    "Upload the .msix from the GitHub Release to Partner Center.",
+    "Microsoft will sign the MSIX automatically upon Store publication.",
+    "For sideloading, users need Developer Mode enabled in Windows Settings.",
+    "The runFullTrust capability is required and automatically approved for Desktop Bridge apps.",
+    "Screenshots in this folder are ready for upload to Partner Center."
+  ]
+}
