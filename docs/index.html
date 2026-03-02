@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="LangOver - הפתרון לטקסט שהוקלד בשפה הלא נכונה. בחרו טקסט, לחצו על גלגל העכבר, הבעיה נפתרה.">
+  <title>LangOver – המרת שפה מיידית</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #08090d;
+      --bg2:       #0f1117;
+      --bg3:       #161820;
+      --border:    #1e2130;
+      --accent:    #4f8ef7;
+      --accent2:   #8b5cf6;
+      --green:     #22d3a0;
+      --text:      #e8eaf0;
+      --muted:     #6b7280;
+      --card-bg:   #0f1117;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Heebo', 'Segoe UI', Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+      direction: rtl;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Nav ── */
+    nav {
+      position: fixed; top: 0; right: 0; left: 0; z-index: 100;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0 2rem;
+      height: 60px;
+      background: rgba(8,9,13,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      font-size: 1.2rem; font-weight: 700; letter-spacing: -.5px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .nav-links { display: flex; gap: 1.5rem; list-style: none; }
+    .nav-links a {
+      color: var(--muted); text-decoration: none; font-size: .9rem;
+      transition: color .2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+
+    /* ── Sections ── */
+    section { padding: 6rem 1.5rem; max-width: 900px; margin: 0 auto; }
+
+    /* ── Hero ── */
+    #hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center;
+      text-align: center;
+      padding-top: 80px;
+      max-width: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+    #hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 70% 50% at 50% 0%, rgba(79,142,247,.12) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 40% at 80% 60%, rgba(139,92,246,.08) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .hero-inner { max-width: 700px; position: relative; }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: .4rem;
+      background: rgba(79,142,247,.1); border: 1px solid rgba(79,142,247,.25);
+      color: var(--accent); border-radius: 99px;
+      font-size: .8rem; padding: .3rem .9rem;
+      margin-bottom: 1.8rem; letter-spacing: .02em;
+    }
+    .badge-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .4; transform: scale(.7); }
+    }
+
+    h1 {
+      font-size: clamp(2.2rem, 5vw, 3.8rem);
+      font-weight: 900;
+      line-height: 1.15;
+      letter-spacing: -.03em;
+      margin-bottom: 1.2rem;
+    }
+    .gradient-text {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-sub {
+      font-size: 1.15rem; color: var(--muted);
+      max-width: 520px; margin: 0 auto 2.5rem;
+      font-weight: 300; line-height: 1.8;
+    }
+
+    .cta-group { display: flex; gap: .8rem; justify-content: center; flex-wrap: wrap; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .75rem 1.6rem; border-radius: 10px;
+      font-size: .95rem; font-weight: 500;
+      text-decoration: none; transition: all .2s; cursor: pointer;
+      border: none; font-family: inherit;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(79,142,247,.3);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(79,142,247,.45); }
+    .btn-secondary {
+      background: var(--bg3); color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Demo animation ── */
+    .demo-wrap {
+      margin: 4rem auto 0;
+      max-width: 560px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(0,0,0,.5);
+    }
+    .demo-topbar {
+      display: flex; align-items: center; gap: .5rem;
+      padding: .8rem 1rem;
+      background: var(--bg3);
+      border-bottom: 1px solid var(--border);
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-r { background: #ff5f57; }
+    .dot-y { background: #ffbd2e; }
+    .dot-g { background: #28c840; }
+    .demo-title { font-size: .8rem; color: var(--muted); margin-right: auto; margin-left: auto; }
+
+    .demo-body { padding: 1.5rem 2rem 2rem; }
+    .demo-label { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: .5rem; }
+    .demo-text {
+      font-size: 1.4rem; font-weight: 700; letter-spacing: .02em;
+      min-height: 2.2rem;
+      font-family: 'Courier New', monospace;
+    }
+    .demo-text .cursor {
+      display: inline-block;
+      width: 2px; height: 1.4em;
+      background: var(--accent);
+      vertical-align: middle;
+      margin-right: 2px;
+      animation: blink .9s infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    .demo-arrow {
+      text-align: center; margin: 1rem 0;
+      color: var(--muted); font-size: .8rem;
+      display: flex; align-items: center; justify-content: center; gap: .6rem;
+    }
+    .demo-arrow::before, .demo-arrow::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+    .demo-arrow span { white-space: nowrap; }
+
+    .demo-result {
+      font-size: 1.4rem; font-weight: 700;
+      color: var(--green); letter-spacing: .02em;
+      font-family: 'Courier New', monospace;
+      min-height: 2.2rem;
+    }
+    .demo-click {
+      display: inline-flex; align-items: center; gap: .4rem;
+      font-size: .8rem; color: var(--muted);
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 6px; padding: .3rem .7rem; margin-top: 1.2rem;
+    }
+    .scroll-icon { font-size: 1em; }
+
+    /* ── Pain section ── */
+    #pain { text-align: center; }
+    .section-label {
+      font-size: .8rem; font-weight: 500; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--accent);
+      margin-bottom: .8rem;
+    }
+    h2 { font-size: clamp(1.6rem, 3.5vw, 2.4rem); font-weight: 800; letter-spacing: -.02em; margin-bottom: 1rem; }
+    .section-desc { color: var(--muted); max-width: 600px; margin: 0 auto 3rem; font-size: 1.05rem; }
+
+    .scenario-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem; text-align: right;
+    }
+    .scenario-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 14px; padding: 1.4rem 1.5rem;
+      transition: border-color .25s, transform .25s;
+    }
+    .scenario-card:hover { border-color: rgba(79,142,247,.3); transform: translateY(-3px); }
+    .scenario-icon { font-size: 1.8rem; margin-bottom: .7rem; }
+    .scenario-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: .4rem; }
+    .scenario-card p { font-size: .9rem; color: var(--muted); }
+
+    /* ── How ── */
+    #how { text-align: center; }
+    .steps {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem; margin-top: 1rem;
+    }
+    .step-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 14px; padding: 2rem 1.5rem;
+      position: relative; text-align: right;
+      transition: border-color .25s;
+    }
+    .step-card:hover { border-color: rgba(79,142,247,.35); }
+    .step-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      font-size: .9rem; font-weight: 800; color: #fff;
+      margin-bottom: 1rem;
+    }
+    .step-card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: .4rem; }
+    .step-card p { font-size: .9rem; color: var(--muted); }
+
+    /* ── Feature ── */
+    #features { text-align: center; }
+    .feature-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem; text-align: right;
+    }
+    .feature-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 14px; padding: 1.6rem;
+      transition: border-color .25s;
+    }
+    .feature-card:hover { border-color: rgba(139,92,246,.35); }
+    .feature-icon {
+      width: 42px; height: 42px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; margin-bottom: 1rem;
+    }
+    .fi-blue { background: rgba(79,142,247,.15); }
+    .fi-purple { background: rgba(139,92,246,.15); }
+    .fi-green { background: rgba(34,211,160,.15); }
+    .fi-orange { background: rgba(251,146,60,.15); }
+    .feature-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: .35rem; }
+    .feature-card p { font-size: .88rem; color: var(--muted); }
+
+    /* ── Download ── */
+    #download {
+      text-align: center;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4rem 2rem;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    #download h2 { margin-bottom: .6rem; }
+    #download .section-desc { margin-bottom: 2rem; }
+    .download-btns { display: flex; gap: .8rem; justify-content: center; flex-wrap: wrap; }
+    .version-note { font-size: .85rem; color: var(--muted); margin-top: 1.5rem; }
+    .version-note a { color: var(--accent); text-decoration: none; }
+    .version-note a:hover { text-decoration: underline; }
+
+    /* ── Trust badges ── */
+    .trust-row {
+      display: flex; justify-content: center; align-items: center;
+      flex-wrap: wrap; gap: 1.5rem;
+      margin-top: 2.5rem;
+    }
+    .trust-badge {
+      display: flex; align-items: center; gap: .4rem;
+      font-size: .82rem; color: var(--muted);
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 8px; padding: .4rem .9rem;
+    }
+    .trust-badge-icon { font-size: 1em; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center; padding: 3rem 1.5rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted); font-size: .88rem;
+    }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+    .footer-links { display: flex; justify-content: center; gap: 1.5rem; margin-top: .8rem; flex-wrap: wrap; }
+
+    @media (max-width: 600px) {
+      nav { padding: 0 1rem; }
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Navigation ── -->
+<nav>
+  <span class="nav-logo">⌨ LangOver</span>
+  <ul class="nav-links">
+    <li><a href="#pain">הבעיה</a></li>
+    <li><a href="#how">שימוש</a></li>
+    <li><a href="#features">יתרונות</a></li>
+    <li><a href="#download">הורדה</a></li>
+  </ul>
+</nav>
+
+<!-- ── Hero ── -->
+<section id="hero">
+  <div class="hero-inner">
+    <div class="badge">
+      <span class="badge-dot"></span>
+      גרסה 1.0.0 זמינה להורדה
+    </div>
+
+    <h1>הקלדת בשפה<br><span class="gradient-text">הלא נכונה?</span><br>שנייה אחת ונגמר.</h1>
+
+    <p class="hero-sub">
+      בחרו את הטקסט, לחצו על גלגל העכבר — וה-LangOver ממיר אותו מיידית.
+      ללא הגדרות, ללא התקנות, ללא שום דבר.
+    </p>
+
+    <div class="cta-group">
+      <a class="btn btn-primary" href="https://github.com/nachlib/LangOver/releases/latest/download/langover-x64.exe">
+        ⬇ הורידו עכשיו (x64)
+      </a>
+      <a class="btn btn-secondary" href="https://github.com/nachlib/LangOver" target="_blank">
+        קוד פתוח ב-GitHub ↗
+      </a>
+    </div>
+
+    <!-- Live demo -->
+    <div class="demo-wrap">
+      <div class="demo-topbar">
+        <span class="dot dot-r"></span>
+        <span class="dot dot-y"></span>
+        <span class="dot dot-g"></span>
+        <span class="demo-title">demo</span>
+      </div>
+      <div class="demo-body">
+        <div class="demo-label">הקלדת בטעות בלועזית</div>
+        <div class="demo-text" id="demo-input"><span class="cursor"></span></div>
+        <div class="demo-arrow">
+          <span>🖱 לחיצה על גלגל העכבר</span>
+        </div>
+        <div class="demo-label">התוצאה</div>
+        <div class="demo-result" id="demo-result"></div>
+        <div class="demo-click">
+          <span class="scroll-icon">🖱</span>
+          middle-click
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Pain ── -->
+<section id="pain">
+  <p class="section-label">הבעיה</p>
+  <h2>זה קורה לכולנו. כל יום.</h2>
+  <p class="section-desc">
+    אתם מקלידים בריצה, ורק אחרי שמשה גמרתם אתם מבינים&mdash;
+    כל המילים יצאו בשפה הלא נכונה. מעצבן עד כלות.
+  </p>
+
+  <div class="scenario-grid">
+    <div class="scenario-card">
+      <div class="scenario-icon">💬</div>
+      <h3>הודעות וצ'אטים</h3>
+      <p>כתבתם הודעה שלמה ב-WhatsApp ורק בסוף שמתם לב שיצאה בלועזית.</p>
+    </div>
+    <div class="scenario-card">
+      <div class="scenario-icon">📧</div>
+      <h3>מיילים</h3>
+      <p>כותרת מייל מקצועית שהופכת לבלגן של תווים חסרי פשר.</p>
+    </div>
+    <div class="scenario-card">
+      <div class="scenario-icon">📝</div>
+      <h3>מסמכים</h3>
+      <p>פסקה שלמה שנכתבה ב-Word בשפה הלא נכונה. לסמן ולמחוק.</p>
+    </div>
+    <div class="scenario-card">
+      <div class="scenario-icon">🔍</div>
+      <h3>חיפושים</h3>
+      <p>חיפוש ב-Google שיוצא בכלל לא קריא ומחזיר אפס תוצאות.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── How ── -->
+<section id="how">
+  <p class="section-label">שימוש</p>
+  <h2>פשוט כמו שזה נשמע</h2>
+  <p class="section-desc">שלושה צעדים. שנייה אחת. הבעיה נפתרה.</p>
+
+  <div class="steps">
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <h3>הפעילו את LangOver</h3>
+      <p>הורידו ולחצו פעמיים. לא נדרש &#x5D0;&#x5D9;&#x5E9;&#x5D5;&#x5E8;, לא נדרשת התקנה. האפליקציה מתחקה בשקט בשורת המשימות.</p>
+    </div>
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <h3>סמנו את הטקסט השגוי</h3>
+      <p>בחרו בעכבר או במקלדת את הטקסט שרציתם לכתוב בשפה אחרת.</p>
+    </div>
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <h3>לחצו על גלגל העכבר</h3>
+      <p>לחיצה אחת על גלגלת העכבר (לחיצה, לא גלילה) — והטקסט מוחלף מיידית.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── Features ── -->
+<section id="features">
+  <p class="section-label">יתרונות</p>
+  <h2>לא כמו הכלים האחרים</h2>
+  <p class="section-desc">LangOver תוכנן לעשות דבר אחד — ולעשות אותו מושלם.</p>
+
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="feature-icon fi-blue">⚡</div>
+      <h3>אפס תלויות</h3>
+      <p>קובץ EXE בודד. לא צריך Visual C++ Redistributable, לא .NET, לא שום דבר. פשוט מריצים.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon fi-purple">🔒</div>
+      <h3>לא מפריע לשום דבר</h3>
+      <p>גלגל העכבר ממשיך לעבוד כרגיל — גלילה, פתיחת קישורים בטאב, auto-scroll. LangOver מתערב רק כשיש טקסט מסומן.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon fi-green">🛡</div>
+      <h3>בטוח ושקוף</h3>
+      <p>קוד פתוח לחלוטין. נבנה דטרמיניסטית ב-GitHub Actions, חתום עם Sigstore. VirusTotal: 0/95.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon fi-orange">🪶</div>
+      <h3>קל כנוצה</h3>
+      <p>שני מגה בייט. לא אוכל CPU ולא זיכרון. פשוט יושב בשקט עד שצריכים אותו.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── Download ── -->
+<section style="max-width:900px; margin:0 auto; padding:2rem 1.5rem 8rem;">
+  <div id="download">
+    <p class="section-label">הורדה</p>
+    <h2>מוכנים?</h2>
+    <p class="section-desc">הורידו, לחצו פעמיים, סיימתם.</p>
+
+    <div class="download-btns">
+      <a class="btn btn-primary" href="https://github.com/nachlib/LangOver/releases/latest/download/langover-x64.exe">
+        ⬇ הורדה &nbsp;(Windows 64-bit)
+      </a>
+      <a class="btn btn-secondary" href="https://github.com/nachlib/LangOver/releases/latest/download/langover-x86.exe">
+        ⬇ הורדה &nbsp;(32-bit)
+      </a>
+    </div>
+
+    <p class="version-note">
+      גרסה 1.0.0 &nbsp;·&nbsp;
+      <a href="https://github.com/nachlib/LangOver/releases" target="_blank">כל הגרסאות</a>
+      &nbsp;·&nbsp;
+      <a href="https://github.com/nachlib/LangOver" target="_blank">GitHub</a>
+    </p>
+
+    <div class="trust-row">
+      <span class="trust-badge"><span class="trust-badge-icon">🔓</span> קוד פתוח — MIT</span>
+      <span class="trust-badge"><span class="trust-badge-icon">✅</span> VirusTotal 0 / 95</span>
+      <span class="trust-badge"><span class="trust-badge-icon">🔏</span> חתום Sigstore</span>
+      <span class="trust-badge"><span class="trust-badge-icon">🏗</span> בנוי ב-GitHub Actions</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ── -->
+<footer>
+  <div>© 2026 LangOver · רישיון MIT</div>
+  <div class="footer-links">
+    <a href="https://github.com/nachlib/LangOver" target="_blank">GitHub</a>
+    <a href="https://github.com/nachlib/LangOver/releases" target="_blank">Releases</a>
+    <a href="https://github.com/nachlib/LangOver/issues" target="_blank">דיווח על בעיה</a>
+    <a href="https://github.com/nachlib/LangOver/blob/main/LICENSE" target="_blank">רישיון</a>
+  </div>
+</footer>
+
+<!-- ── Demo animation script ── -->
+<script>
+  const examples = [
+    { input: 'slm tk',        output: 'שלם טוב' },
+    { input: 'nrt aburh',     output: 'נרת אבורה' },
+    { input: "asdf ghjk",     output: 'שדגכ גחיכ' },
+    { input: 'nt ,ta rua',    output: 'נת .תא רוא' },
+    { input: 'lf,a ,uard',    output: 'לפ.א .וארד' },
+  ];
+
+  let exIdx = 0;
+  const inputEl  = document.getElementById('demo-input');
+  const resultEl = document.getElementById('demo-result');
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  async function typeText(el, text, clearFirst = false) {
+    if (clearFirst) { el.innerHTML = '<span class="cursor"></span>'; await sleep(300); }
+    for (const ch of text) {
+      const cursor = el.querySelector('.cursor');
+      const span = document.createElement('span');
+      span.textContent = ch;
+      el.insertBefore(span, cursor);
+      await sleep(80 + Math.random() * 60);
+    }
+  }
+
+  async function eraseText(el) {
+    const spans = [...el.querySelectorAll('span:not(.cursor)')];
+    for (let i = spans.length - 1; i >= 0; i--) {
+      spans[i].remove();
+      await sleep(40);
+    }
+  }
+
+  async function runDemo() {
+    while (true) {
+      const ex = examples[exIdx % examples.length];
+      exIdx++;
+
+      resultEl.textContent = '';
+      await typeText(inputEl, ex.input, true);
+      await sleep(700);
+
+      // reveal result char by char
+      for (const ch of ex.output) {
+        resultEl.textContent += ch;
+        await sleep(60);
+      }
+
+      await sleep(2500);
+      await eraseText(inputEl);
+      resultEl.textContent = '';
+      await sleep(400);
+    }
+  }
+
+  runDemo();
+</script>
+
+</body>
+</html>
