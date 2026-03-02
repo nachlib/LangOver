@@ -96,9 +96,10 @@ jobs:
             --clientId "${{ secrets.AZURE_CLIENT_ID }}" `
             --clientSecret "${{ secrets.AZURE_CLIENT_SECRET }}"
 
-      # ── Verify credentials work ──
+      # ── Verify credentials work (non-fatal — new apps may have no submissions yet) ──
       - name: Verify API access
         shell: pwsh
+        continue-on-error: true
         run: |
           Write-Host "=== Verifying Partner Center API access ==="
           msstore apps list 2>&1 | Out-String | Write-Host
@@ -109,13 +110,18 @@ jobs:
         run: |
           $appId = "${{ steps.appid.outputs.APP_ID }}"
           Write-Host "Publishing to Store App: $appId"
+          Write-Host "Input directory contents:"
+          Get-ChildItem "store-upload" | Format-Table Name, Length
 
-          # Update submission with new packages
-          Write-Host "=== Updating submission ==="
-          msstore submission update $appId --inputDirectory "store-upload" --noCommit
+          # Try submission update first; if it fails (no existing submission), try publish
+          Write-Host "=== Attempting submission update ==="
+          $result = msstore submission update $appId --inputDirectory "store-upload" 2>&1 | Out-String
+          Write-Host $result
 
-          Write-Host "=== Committing submission ==="
-          msstore submission update $appId --inputDirectory "store-upload"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "=== Submission update failed, trying publish command ==="
+            msstore publish $appId --inputDirectory "store-upload"
+          }
 
           Write-Host "=== Done! Check Partner Center for submission status ==="
 
@@ -123,6 +129,7 @@ jobs:
       - name: Check submission status
         if: success()
         shell: pwsh
+        continue-on-error: true
         run: |
           $appId = "${{ steps.appid.outputs.APP_ID }}"
           Write-Host "Checking submission status..."
