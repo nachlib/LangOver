@@ -1,0 +1,241 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+  id-token: write       # Required for Sigstore OIDC keyless signing
+  attestations: write   # Required for GitHub artifact attestations
+
+jobs:
+  # ════════════════════════════════════════════
+  #  Build x64
+  # ════════════════════════════════════════════
+  build:
+    name: Build Windows EXE (x64)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure CMake (MSVC x64)
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Verify EXE exists
+        run: |
+          if (!(Test-Path "build/Release/langover.exe")) {
+            throw "langover.exe not found"
+          }
+          Get-Item "build/Release/langover.exe" | Select-Object Name, Length
+
+      - name: Compute SHA256
+        run: |
+          $hash = (Get-FileHash "build/Release/langover.exe" -Algorithm SHA256).Hash
+          Write-Host "SHA256: $hash"
+          $hash | Out-File -FilePath "build/Release/langover-x64.sha256" -NoNewline
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: langover-x64
+          path: |
+            build/Release/langover.exe
+            build/Release/langover-x64.sha256
+          if-no-files-found: error
+
+  # ════════════════════════════════════════════
+  #  Build x86
+  # ════════════════════════════════════════════
+  build-x86:
+    name: Build Windows EXE (x86)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure CMake (MSVC x86)
+        run: cmake -B build -G "Visual Studio 17 2022" -A Win32 -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Compute SHA256
+        run: |
+          $hash = (Get-FileHash "build/Release/langover.exe" -Algorithm SHA256).Hash
+          Write-Host "SHA256: $hash"
+          $hash | Out-File -FilePath "build/Release/langover-x86.sha256" -NoNewline
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: langover-x86
+          path: |
+            build/Release/langover.exe
+            build/Release/langover-x86.sha256
+          if-no-files-found: error
+
+  # ════════════════════════════════════════════
+  #  Sign with Sigstore + Release
+  # ════════════════════════════════════════════
+  release:
+    name: Sign & Release
+    needs: [build, build-x86]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download x64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: langover-x64
+          path: x64
+
+      - name: Download x86 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: langover-x86
+          path: x86
+
+      - name: Rename artifacts
+        run: |
+          mv x64/langover.exe langover-x64.exe
+          mv x64/langover-x64.sha256 langover-x64.sha256
+          mv x86/langover.exe langover-x86.exe
+          mv x86/langover-x86.sha256 langover-x86.sha256
+
+      # ── Sigstore: keyless signing with cosign ──
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign with Sigstore (x64)
+        run: |
+          cosign sign-blob \
+            --yes \
+            --output-signature langover-x64.exe.sig \
+            --output-certificate langover-x64.exe.pem \
+            langover-x64.exe
+
+      - name: Sign with Sigstore (x86)
+        run: |
+          cosign sign-blob \
+            --yes \
+            --output-signature langover-x86.exe.sig \
+            --output-certificate langover-x86.exe.pem \
+            langover-x86.exe
+
+      - name: Verify Sigstore signatures
+        run: |
+          cosign verify-blob \
+            --signature langover-x64.exe.sig \
+            --certificate langover-x64.exe.pem \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity-regexp "github.com/nachlib/LangOver" \
+            langover-x64.exe
+
+          cosign verify-blob \
+            --signature langover-x86.exe.sig \
+            --certificate langover-x86.exe.pem \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity-regexp "github.com/nachlib/LangOver" \
+            langover-x86.exe
+
+      # ── GitHub Artifact Attestation ──
+      - name: Attest x64 binary
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: langover-x64.exe
+
+      - name: Attest x86 binary
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: langover-x86.exe
+
+      # ── Create Release ──
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          body: |
+            ## Verification
+
+            ### Sigstore (cosign)
+            ```bash
+            # Install cosign: https://docs.sigstore.dev/cosign/system_config/installation/
+            cosign verify-blob \
+              --signature langover-x64.exe.sig \
+              --certificate langover-x64.exe.pem \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+              --certificate-identity-regexp "github.com/nachlib/LangOver" \
+              langover-x64.exe
+            ```
+
+            ### GitHub Attestation
+            ```bash
+            gh attestation verify langover-x64.exe -o nachlib
+            ```
+          files: |
+            langover-x64.exe
+            langover-x64.exe.sig
+            langover-x64.exe.pem
+            langover-x64.sha256
+            langover-x86.exe
+            langover-x86.exe.sig
+            langover-x86.exe.pem
+            langover-x86.sha256
+
+  # ════════════════════════════════════════════
+  #  SignPath (triggered after release, needs approval)
+  #  Uncomment when SignPath project is approved.
+  # ════════════════════════════════════════════
+  # signpath:
+  #   name: Sign with SignPath
+  #   needs: [build, build-x86]
+  #   if: startsWith(github.ref, 'refs/tags/v')
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Download x64 artifact
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: langover-x64
+  #         path: x64
+  #
+  #     - name: Download x86 artifact
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: langover-x86
+  #         path: x86
+  #
+  #     - name: Submit x64 to SignPath
+  #       uses: signpath/github-action-submit-signing-request@v1
+  #       with:
+  #         api-token: '${{ secrets.SIGNPATH_API_TOKEN }}'
+  #         organization-id: '${{ secrets.SIGNPATH_ORGANIZATION_ID }}'
+  #         project-slug: 'langover'
+  #         signing-policy-slug: 'release-signing'
+  #         artifact-configuration-slug: 'langover-x64'
+  #         github-artifact-id: '${{ needs.build.outputs.artifact-id }}'
+  #         wait-for-completion: true
+  #
+  #     - name: Submit x86 to SignPath
+  #       uses: signpath/github-action-submit-signing-request@v1
+  #       with:
+  #         api-token: '${{ secrets.SIGNPATH_API_TOKEN }}'
+  #         organization-id: '${{ secrets.SIGNPATH_ORGANIZATION_ID }}'
+  #         project-slug: 'langover'
+  #         signing-policy-slug: 'release-signing'
+  #         artifact-configuration-slug: 'langover-x86'
+  #         github-artifact-id: '${{ needs.build-x86.outputs.artifact-id }}'
+  #         wait-for-completion: true

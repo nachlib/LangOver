@@ -1,0 +1,39 @@
+/* LangOver resource file */
+#include "resource.h"
+#include <winver.h>
+
+/* ── Icon ── */
+IDI_LANGOVER ICON "langover.ico"
+
+/* ── Manifest (DPI-aware, common controls v6, UTF-8) ── */
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "langover.exe.manifest"
+
+/* ── Version info ── */
+VS_VERSION_INFO VERSIONINFO
+    FILEVERSION     1,0,0,0
+    PRODUCTVERSION  1,0,0,0
+    FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+    FILEFLAGS       0
+    FILEOS          VOS_NT_WINDOWS32
+    FILETYPE        VFT_APP
+    FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName",      "LangOver"
+            VALUE "FileDescription",  "Hebrew-English keyboard layout text converter"
+            VALUE "FileVersion",      "1.0.0.0"
+            VALUE "InternalName",     "langover"
+            VALUE "LegalCopyright",   "MIT License"
+            VALUE "OriginalFilename", "langover.exe"
+            VALUE "ProductName",      "LangOver"
+            VALUE "ProductVersion",   "1.0.0.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END

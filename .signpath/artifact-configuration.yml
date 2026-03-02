@@ -1,0 +1,26 @@
+# SignPath configuration
+# https://about.signpath.io/documentation/artifact-configuration/
+#
+# This project uses SignPath for open-source code signing.
+# Apply at: https://about.signpath.io/open-source
+#
+# Repository: https://github.com/nachlib/LangOver
+# License: MIT
+
+# ── x64 artifact ──
+# GitHub Actions artifact name: langover-x64
+# Contains: langover.exe (PE executable)
+- artifact-configuration:
+    name: "langover-x64"
+    elements:
+      - pe-file:
+          include: "langover.exe"
+
+# ── x86 artifact ──
+# GitHub Actions artifact name: langover-x86
+# Contains: langover.exe (PE executable)
+- artifact-configuration:
+    name: "langover-x86"
+    elements:
+      - pe-file:
+          include: "langover.exe"
