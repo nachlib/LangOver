@@ -15,6 +15,13 @@ on:
 permissions:
   contents: read
 
+# MSStore CLI reads credentials from these env vars automatically (no reconfigure needed)
+env:
+  PARTNER_CENTER_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  PARTNER_CENTER_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  PARTNER_CENTER_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  PARTNER_CENTER_SELLER_ID: ${{ secrets.PARTNER_CENTER_SELLER_ID }}
+
 jobs:
   publish:
     name: Publish MSIX to Store
@@ -82,14 +89,12 @@ jobs:
       - name: Setup MSStore Developer CLI
         uses: microsoft/setup-msstore-cli@v1
 
-      # ── Configure credentials ──
-      - name: Configure Store credentials
+      # ── Verify credentials work ──
+      - name: Verify API access
         shell: pwsh
         run: |
-          msstore reconfigure `
-            --tenantId "${{ secrets.AZURE_TENANT_ID }}" `
-            --clientId "${{ secrets.AZURE_CLIENT_ID }}" `
-            --clientSecret "${{ secrets.AZURE_CLIENT_SECRET }}"
+          Write-Host "=== Verifying Partner Center API access ==="
+          msstore apps list 2>&1 | Out-String | Write-Host
 
       # ── Publish ──
       - name: Publish to Microsoft Store
@@ -97,10 +102,6 @@ jobs:
         run: |
           $appId = "${{ steps.appid.outputs.APP_ID }}"
           Write-Host "Publishing to Store App: $appId"
-
-          # List current apps to verify access
-          Write-Host "=== Verifying API access ==="
-          msstore apps list 2>&1 | Out-String | Write-Host
 
           # Update submission with new packages
           Write-Host "=== Updating submission ==="
@@ -110,10 +111,6 @@ jobs:
           msstore submission update $appId --inputDirectory "store-upload"
 
           Write-Host "=== Done! Check Partner Center for submission status ==="
-        env:
-          PARTNER_CENTER_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          PARTNER_CENTER_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          PARTNER_CENTER_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
 
       # ── Poll submission status ──
       - name: Check submission status
@@ -123,7 +120,3 @@ jobs:
           $appId = "${{ steps.appid.outputs.APP_ID }}"
           Write-Host "Checking submission status..."
           msstore submission status $appId 2>&1 | Out-String | Write-Host
-        env:
-          PARTNER_CENTER_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          PARTNER_CENTER_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          PARTNER_CENTER_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
