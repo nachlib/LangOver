@@ -1,14 +1,12 @@
 name: Publish to Microsoft Store
 
 on:
-  # Manual trigger — use this for first-time and on-demand publishes
   workflow_dispatch:
     inputs:
       app_id:
-        description: 'Store Product ID (from Partner Center URL or msstore apps list)'
-        required: true
+        description: 'Store Product ID (optional — reads from STORE_APP_ID secret if empty)'
+        required: false
         type: string
-  # Auto-publish when a new release is created (requires STORE_APP_ID secret)
   release:
     types: [published]
 
@@ -36,13 +34,12 @@ jobs:
         id: appid
         shell: pwsh
         run: |
-          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
-            $appId = "${{ inputs.app_id }}"
-          } else {
+          $appId = "${{ inputs.app_id }}"
+          if ([string]::IsNullOrWhiteSpace($appId)) {
             $appId = "${{ secrets.STORE_APP_ID }}"
           }
           if ([string]::IsNullOrWhiteSpace($appId)) {
-            throw "No App ID provided. For release-triggered runs, set STORE_APP_ID secret."
+            throw "No App ID. Set STORE_APP_ID secret or provide it as input."
           }
           Write-Host "App ID: $appId"
           echo "APP_ID=$appId" >> $env:GITHUB_OUTPUT
