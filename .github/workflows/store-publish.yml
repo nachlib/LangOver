@@ -1,0 +1,129 @@
+name: Publish to Microsoft Store
+
+on:
+  # Manual trigger — use this for first-time and on-demand publishes
+  workflow_dispatch:
+    inputs:
+      app_id:
+        description: 'Store Product ID (from Partner Center URL or msstore apps list)'
+        required: true
+        type: string
+  # Auto-publish when a new release is created (requires STORE_APP_ID secret)
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish MSIX to Store
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Determine App ID ──
+      - name: Resolve App ID
+        id: appid
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $appId = "${{ inputs.app_id }}"
+          } else {
+            $appId = "${{ secrets.STORE_APP_ID }}"
+          }
+          if ([string]::IsNullOrWhiteSpace($appId)) {
+            throw "No App ID provided. For release-triggered runs, set STORE_APP_ID secret."
+          }
+          Write-Host "App ID: $appId"
+          echo "APP_ID=$appId" >> $env:GITHUB_OUTPUT
+
+      # ── Download MSIX from latest release ──
+      - name: Download MSIX from release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get release info
+          if ("${{ github.event_name }}" -eq "release") {
+            $tag = "${{ github.event.release.tag_name }}"
+          } else {
+            $tag = "latest"
+          }
+          Write-Host "Downloading MSIX from release: $tag"
+
+          New-Item -ItemType Directory -Path "store-upload" -Force | Out-Null
+
+          if ($tag -eq "latest") {
+            $release = gh api repos/${{ github.repository }}/releases/latest | ConvertFrom-Json
+          } else {
+            $release = gh api repos/${{ github.repository }}/releases/tags/$tag | ConvertFrom-Json
+          }
+
+          # Download x64 MSIX
+          $msixAsset = $release.assets | Where-Object { $_.name -eq "langover-x64.msix" }
+          if (!$msixAsset) { throw "langover-x64.msix not found in release $tag" }
+
+          Write-Host "Downloading: $($msixAsset.name) ($($msixAsset.size) bytes)"
+          gh api $msixAsset.url -H "Accept: application/octet-stream" > "store-upload/langover-x64.msix"
+
+          # Also download x86 MSIX
+          $msixAssetX86 = $release.assets | Where-Object { $_.name -eq "langover-x86.msix" }
+          if ($msixAssetX86) {
+            Write-Host "Downloading: $($msixAssetX86.name) ($($msixAssetX86.size) bytes)"
+            gh api $msixAssetX86.url -H "Accept: application/octet-stream" > "store-upload/langover-x86.msix"
+          }
+
+          Get-ChildItem "store-upload" | Format-Table Name, Length
+
+      # ── Setup Microsoft Store Developer CLI ──
+      - name: Setup MSStore Developer CLI
+        uses: microsoft/setup-msstore-cli@v1
+
+      # ── Configure credentials ──
+      - name: Configure Store credentials
+        shell: pwsh
+        run: |
+          msstore reconfigure `
+            --tenantId "${{ secrets.AZURE_TENANT_ID }}" `
+            --clientId "${{ secrets.AZURE_CLIENT_ID }}" `
+            --clientSecret "${{ secrets.AZURE_CLIENT_SECRET }}"
+
+      # ── Publish ──
+      - name: Publish to Microsoft Store
+        shell: pwsh
+        run: |
+          $appId = "${{ steps.appid.outputs.APP_ID }}"
+          Write-Host "Publishing to Store App: $appId"
+
+          # List current apps to verify access
+          Write-Host "=== Verifying API access ==="
+          msstore apps list 2>&1 | Out-String | Write-Host
+
+          # Update submission with new packages
+          Write-Host "=== Updating submission ==="
+          msstore submission update $appId --inputDirectory "store-upload" --noCommit
+
+          Write-Host "=== Committing submission ==="
+          msstore submission update $appId --inputDirectory "store-upload"
+
+          Write-Host "=== Done! Check Partner Center for submission status ==="
+        env:
+          PARTNER_CENTER_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          PARTNER_CENTER_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          PARTNER_CENTER_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+      # ── Poll submission status ──
+      - name: Check submission status
+        if: success()
+        shell: pwsh
+        run: |
+          $appId = "${{ steps.appid.outputs.APP_ID }}"
+          Write-Host "Checking submission status..."
+          msstore submission status $appId 2>&1 | Out-String | Write-Host
+        env:
+          PARTNER_CENTER_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          PARTNER_CENTER_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          PARTNER_CENTER_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
