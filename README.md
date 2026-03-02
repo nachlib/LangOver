@@ -12,6 +12,7 @@ A tiny, portable Windows app (single `.exe`, no dependencies) that converts sele
 
 | Format | x64 | x86 |
 |--------|-----|-----|
+| **Microsoft Store** | [![Get it from Microsoft](https://img.shields.io/badge/Microsoft%20Store-Install-blue?logo=microsoft)](https://apps.microsoft.com/detail/9NBLGHHP9JLQ) | |
 | **Standalone EXE** (no install) | [`langover-x64.exe`](../../releases/latest) | [`langover-x86.exe`](../../releases/latest) |
 | **MSIX** (Store / sideload) | [`langover-x64.msix`](../../releases/latest) | [`langover-x86.msix`](../../releases/latest) |
 

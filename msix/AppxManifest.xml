@@ -6,21 +6,14 @@
          xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
          IgnorableNamespaces="uap uap3 rescap desktop">
 
-  <!--
-    IMPORTANT: Before uploading to Microsoft Store, update Identity and Properties
-    with your actual Partner Center values:
-      - Identity Name      -> from Partner Center > App identity
-      - Identity Publisher  -> from Partner Center > App identity (CN=...)
-      - PublisherDisplayName -> your publisher display name
-  -->
-  <Identity Name="YOURPUBLISHERID.LangOver"
-            Publisher="CN=YOURPUBLISHERID"
-            Version="1.1.0.0"
+  <Identity Name="13821NACH.LIB.LangOver"
+            Publisher="CN=E0FE7F43-A463-4752-AD2C-1D5202A42ED5"
+            Version="1.1.1.0"
             ProcessorArchitecture="ARCH_PLACEHOLDER" />
 
   <Properties>
     <DisplayName>LangOver</DisplayName>
-    <PublisherDisplayName>LangOver</PublisherDisplayName>
+    <PublisherDisplayName>NACH.LIB</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
     <Description>Hebrew / English keyboard layout text converter. Select text, middle-click, done.</Description>
   </Properties>
