@@ -307,7 +307,9 @@
       font-size: .82rem; color: var(--muted);
       background: var(--bg3); border: 1px solid var(--border);
       border-radius: 8px; padding: .4rem .9rem;
+      transition: border-color .2s, color .2s;
     }
+    a.trust-badge:hover { border-color: var(--green); color: var(--green); }
     .trust-badge-icon { font-size: 1em; }
 
     /* ── Footer ── */
@@ -501,7 +503,7 @@
 
     <div class="trust-row">
       <span class="trust-badge"><span class="trust-badge-icon">🔓</span> קוד פתוח — MIT</span>
-      <span class="trust-badge"><span class="trust-badge-icon">✅</span> VirusTotal 0 / 95</span>
+      <a class="trust-badge" href="https://www.virustotal.com/gui/url/600ce273bdc5811515ae11faee9e2f7f604c04730d22694065e1f5aacf34d850/detection" target="_blank" style="text-decoration:none;color:inherit;"><span class="trust-badge-icon">✅</span> VirusTotal 0 / 95 ↗</a>
       <span class="trust-badge"><span class="trust-badge-icon">🔏</span> חתום Sigstore</span>
       <span class="trust-badge"><span class="trust-badge-icon">🏗</span> בנוי ב-GitHub Actions</span>
     </div>
@@ -522,11 +524,11 @@
 <!-- ── Demo animation script ── -->
 <script>
   const examples = [
-    { input: 'slm tk',        output: 'שלם טוב' },
-    { input: 'nrt aburh',     output: 'נרת אבורה' },
-    { input: "asdf ghjk",     output: 'שדגכ גחיכ' },
-    { input: 'nt ,ta rua',    output: 'נת .תא רוא' },
-    { input: 'lf,a ,uard',    output: 'לפ.א .וארד' },
+    { input: 'aktu',      output: 'שלום'      },
+    { input: 'ctqw rtc',  output: 'בוקר טוב'  },
+    { input: 'abv rtcv',  output: 'שנה טובה'  },
+    { input: 'nv qtwv',   output: 'מה קורה'   },
+    { input: 'khkv rtc',  output: 'לילה טוב'  },
   ];
 
   let exIdx = 0;
