@@ -28,6 +28,10 @@
 #define WM_TRAYICON     (WM_USER + 1)
 #define ID_TRAY_EXIT    3001
 #define ID_TRAY_ABOUT   3002
+#define ID_TRAY_STARTUP 3003
+
+#define STARTUP_REG_KEY  L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+#define STARTUP_REG_NAME L"LangOver"
 
 /* ─── Hebrew↔English mapping (physical keyboard positions) ─── */
 static const wchar_t MAP_EN[] = L"`qwertyuiop[]asdfghjkl;'zxcvbnm,./";
@@ -293,12 +297,18 @@ static void PasteText(const wchar_t *text, int len)
 /* ─── Perform the conversion (called async from WM message) ─── */
 #define WM_DO_CONVERT (WM_USER + 100)
 
+/* Forward declaration — defined below with the mouse hook code */
+static void ReplayMiddleClick(POINT pt);
+
 static void DoConvert(void)
 {
     int len = 0;
     wchar_t *text = GetSelectedText(&len);
     if (!text || len == 0) {
         if (text) HeapFree(GetProcessHeap(), 0, text);
+        /* No selection → replay the original middle-click so normal actions work
+           (close tab, auto-scroll, paste in terminal, etc.) */
+        ReplayMiddleClick(g_mbDownPos);
         return;
     }
 
@@ -386,6 +396,37 @@ static LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, LPARAM lParam)
     return CallNextHookEx(g_mouseHook, nCode, wParam, lParam);
 }
 
+/* ─── Startup with Windows (registry-based) ─── */
+static BOOL IsStartupEnabled(void)
+{
+    HKEY hKey;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, STARTUP_REG_KEY, 0, KEY_READ, &hKey) != ERROR_SUCCESS)
+        return FALSE;
+    DWORD type = 0, size = 0;
+    BOOL exists = (RegQueryValueExW(hKey, STARTUP_REG_NAME, NULL, &type, NULL, &size) == ERROR_SUCCESS);
+    RegCloseKey(hKey);
+    return exists;
+}
+
+static void SetStartupEnabled(BOOL enable)
+{
+    HKEY hKey;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, STARTUP_REG_KEY, 0, KEY_WRITE, &hKey) != ERROR_SUCCESS)
+        return;
+    if (enable) {
+        wchar_t exePath[MAX_PATH];
+        GetModuleFileNameW(NULL, exePath, MAX_PATH);
+        /* Wrap in quotes for paths with spaces */
+        wchar_t value[MAX_PATH + 4];
+        wsprintfW(value, L"\"%s\"", exePath);
+        RegSetValueExW(hKey, STARTUP_REG_NAME, 0, REG_SZ,
+                       (const BYTE *)value, (DWORD)((wcslen(value) + 1) * sizeof(wchar_t)));
+    } else {
+        RegDeleteValueW(hKey, STARTUP_REG_NAME);
+    }
+    RegCloseKey(hKey);
+}
+
 /* ─── Tray icon ─── */
 static void CreateTrayIcon(HWND hwnd)
 {
@@ -397,7 +438,7 @@ static void CreateTrayIcon(HWND hwnd)
     g_nid.uCallbackMessage = WM_TRAYICON;
     g_nid.hIcon = g_hIcon;
     wcscpy_s(g_nid.szTip, _countof(g_nid.szTip),
-             L"LangOver - Middle-click to convert He↔En");
+             L"LangOver - \x05DC\x05D7\x05E5 \x05D2\x05DC\x05D2\x05DC\x05EA \x05DC\x05D4\x05DE\x05E8\x05D4");
     Shell_NotifyIconW(NIM_ADD, &g_nid);
 }
 
@@ -419,9 +460,15 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             POINT pt;
             GetCursorPos(&pt);
             HMENU hMenu = CreatePopupMenu();
-            AppendMenuW(hMenu, MF_STRING, ID_TRAY_ABOUT, L"About LangOver");
+            AppendMenuW(hMenu, MF_STRING, ID_TRAY_ABOUT,
+                        L"\x05D0\x05D5\x05D3\x05D5\x05EA LangOver");   /* אודות */
             AppendMenuW(hMenu, MF_SEPARATOR, 0, NULL);
-            AppendMenuW(hMenu, MF_STRING, ID_TRAY_EXIT, L"Exit");
+            AppendMenuW(hMenu, MF_STRING | (IsStartupEnabled() ? MF_CHECKED : 0),
+                        ID_TRAY_STARTUP,
+                        L"\x05D4\x05E4\x05E2\x05DC\x05D4 \x05E2\x05DD \x05E2\x05DC\x05D9\x05D9\x05EA Windows");  /* הפעלה עם עליית */
+            AppendMenuW(hMenu, MF_SEPARATOR, 0, NULL);
+            AppendMenuW(hMenu, MF_STRING, ID_TRAY_EXIT,
+                        L"\x05D9\x05E6\x05D9\x05D0\x05D4");            /* יציאה */
             SetForegroundWindow(hwnd);
             TrackPopupMenu(hMenu, TPM_BOTTOMALIGN | TPM_LEFTALIGN,
                            pt.x, pt.y, 0, hwnd, NULL);
@@ -436,13 +483,17 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             return 0;
         case ID_TRAY_ABOUT:
             MessageBoxW(hwnd,
-                L"LangOver - Hebrew \x2194 English Converter\n\n"
-                L"Select text and middle-click to convert.\n\n"
-                L"If no text is selected, middle-click works normally.\n\n"
-                L"Example: asdf \x2192 \x05E9\x05D3\x05D2\x05DB\n"
+                L"LangOver - \x05DE\x05DE\x05D9\x05E8 \x05E2\x05D1\x05E8\x05D9\x05EA \x2194 \x05D0\x05E0\x05D2\x05DC\x05D9\x05EA\n\n"  /* ממיר עברית ↔ אנגלית */
+                L"\x05D1\x05D7\x05E8 \x05D8\x05E7\x05E1\x05D8 \x05D5\x05DC\x05D7\x05E5 \x05E2\x05DC \x05D2\x05DC\x05D2\x05DC\x05EA \x05D4\x05E2\x05DB\x05D1\x05E8 \x05DC\x05D4\x05DE\x05E8\x05D4.\n\n"  /* בחר טקסט ולחץ על גלגלת העכבר להמרה. */
+                L"\x05D0\x05DD \x05DC\x05D0 \x05E0\x05D1\x05D7\x05E8 \x05D8\x05E7\x05E1\x05D8, \x05DC\x05D7\x05D9\x05E6\x05D4 \x05E2\x05DC \x05D4\x05D2\x05DC\x05D2\x05DC\x05EA \x05E4\x05D5\x05E2\x05DC\x05EA \x05DB\x05E8\x05D2\x05D9\x05DC.\n\n" /* אם לא נבחר טקסט, לחיצה על הגלגלת פועלת כרגיל. */
+                L"\x05D3\x05D5\x05D2\x05DE\x05D4: asdf \x2192 \x05E9\x05D3\x05D2\x05DB\n"  /* דוגמה: */
                 L"\x05E9\x05D3\x05D2\x05DB \x2192 asdf\n\n"
                 L"https://github.com/nachlib/LangOver",
-                L"About LangOver", MB_OK | MB_ICONINFORMATION);
+                L"\x05D0\x05D5\x05D3\x05D5\x05EA LangOver",  /* אודות LangOver */
+                MB_OK | MB_ICONINFORMATION | MB_RTLREADING | MB_RIGHT);
+            return 0;
+        case ID_TRAY_STARTUP:
+            SetStartupEnabled(!IsStartupEnabled());
             return 0;
         }
         break;
@@ -467,9 +518,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     /* Single instance check */
     HANDLE hMutex = CreateMutexW(NULL, TRUE, L"LangOver_SingleInstance_Mutex");
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
-        MessageBoxW(NULL, L"LangOver is already running.\n"
-                    L"Check the system tray (notification area).",
-                    APP_NAME, MB_OK | MB_ICONINFORMATION);
+        MessageBoxW(NULL,
+                    L"LangOver \x05DB\x05D1\x05E8 \x05E4\x05D5\x05E2\x05DC.\n"  /* LangOver כבר פועל. */
+                    L"\x05D1\x05D3\x05D5\x05E7 \x05D1\x05D0\x05D6\x05D5\x05E8 \x05D4\x05D4\x05EA\x05E8\x05D0\x05D5\x05EA.",  /* בדוק באזור ההתראות. */
+                    APP_NAME, MB_OK | MB_ICONINFORMATION | MB_RTLREADING | MB_RIGHT);
         return 0;
     }
 
