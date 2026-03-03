@@ -24,12 +24,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "LangOver"
             VALUE "FileDescription",  "Hebrew-English keyboard layout text converter"
-            VALUE "FileVersion",      "1.1.1.0"
+            VALUE "FileVersion",      "1.2.1.0"
             VALUE "InternalName",     "langover"
             VALUE "LegalCopyright",   "MIT License"
             VALUE "OriginalFilename", "langover.exe"
             VALUE "ProductName",      "LangOver"
-            VALUE "ProductVersion",   "1.1.1.0"
+            VALUE "ProductVersion",   "1.2.1.0"
         END
     END
     BLOCK "VarFileInfo"
