@@ -297,6 +297,11 @@ static void PasteText(const wchar_t *text, int len)
 /* ─── Perform the conversion (called async from WM message) ─── */
 #define WM_DO_CONVERT (WM_USER + 100)
 
+/* Mouse hook state — declared here so DoConvert can reference g_mbDownPos */
+static BOOL   g_mbDown = FALSE;
+static POINT  g_mbDownPos;
+static DWORD  g_mbDownTime;
+
 /* Forward declaration — defined below with the mouse hook code */
 static void ReplayMiddleClick(POINT pt);
 
@@ -328,10 +333,6 @@ static void DoConvert(void)
  *         - If selection exists → convert it (eat the click).
  *         - If no selection → replay the middle click so the app gets it normally.
  */
-
-static BOOL   g_mbDown = FALSE;
-static POINT  g_mbDownPos;
-static DWORD  g_mbDownTime;
 
 static void ReplayMiddleClick(POINT pt)
 {
