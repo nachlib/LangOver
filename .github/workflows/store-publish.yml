@@ -171,23 +171,108 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "=== Verifying Partner Center API access ==="
-          $output = msstore apps list 2>&1 | Out-String
-          Write-Host $output
 
-          if ($output -match "no Managed apps|No applications found") {
-            Write-Host ""
-            Write-Host "::warning::No managed apps found in your Partner Center account."
-            Write-Host "::warning::This usually means the first submission has not been certified yet."
-            Write-Host "::warning::The Store Submission API can only manage apps that have been published at least once."
-            Write-Host ""
-            Write-Host "Possible fixes:"
-            Write-Host "  1. Complete the first submission via https://partner.microsoft.com/dashboard"
-            Write-Host "  2. Wait for certification to complete before using this workflow"
-            Write-Host "  3. Verify Azure AD app is linked in Partner Center > Account Settings > Azure AD applications"
-            Write-Host "  4. Verify PARTNER_CENTER_SELLER_ID is correct (find it in Partner Center > Account Settings > Organization profile)"
-            echo "HAS_MANAGED_APPS=false" >> $env:GITHUB_OUTPUT
-          } else {
+          # ── Step 1: Try msstore CLI (uses Submission API v1 — only works for published apps) ──
+          Write-Host "--- Testing msstore CLI (Submission API v1) ---"
+          $env:ErrorActionPreference = "Continue"
+          $output = msstore apps list 2>&1 | Out-String
+          $cliExitCode = $LASTEXITCODE
+          # Strip ANSI escape codes for reliable matching
+          $cleanOutput = $output -replace '\x1b\[[0-9;]*m', ''
+          Write-Host $cleanOutput
+
+          if ($cliExitCode -eq 0 -and $cleanOutput -notmatch "no Managed apps") {
+            Write-Host "msstore CLI found managed apps!"
             echo "HAS_MANAGED_APPS=true" >> $env:GITHUB_OUTPUT
+            echo "USE_REST_API=false" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+          Write-Host "::warning::msstore CLI returned 'no managed apps' — this is normal for apps pending first certification."
+          Write-Host ""
+
+          # ── Step 2: Try Partner Center REST API directly to check app status ──
+          Write-Host "--- Testing Partner Center REST API directly ---"
+          $tenantId     = "${{ secrets.AZURE_TENANT_ID }}"
+          $clientId     = "${{ secrets.AZURE_CLIENT_ID }}"
+          $clientSecret = "${{ secrets.AZURE_CLIENT_SECRET }}"
+          $appId        = "${{ steps.appid.outputs.APP_ID }}"
+
+          # Get token
+          $tokenBody = @{
+            grant_type    = "client_credentials"
+            client_id     = $clientId
+            client_secret = $clientSecret
+            scope         = "https://api.store.microsoft.com/.default"
+          }
+          $tokenResp = Invoke-RestMethod `
+            -Uri "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token" `
+            -Method POST -ContentType "application/x-www-form-urlencoded" -Body $tokenBody
+          $token = $tokenResp.access_token
+
+          $headers = @{ Authorization = "Bearer $token" }
+
+          # Try v2 API — works for apps that haven't been published yet
+          Write-Host "Querying Partner Center API for app: $appId"
+          try {
+            $app = Invoke-RestMethod `
+              -Uri "https://api.partner.microsoft.com/v1.0/ingestion/products/$appId" `
+              -Headers $headers -Method GET
+            Write-Host "App found via Partner Center API!"
+            Write-Host "  Name: $($app.name)"
+            Write-Host "  ID: $($app.id)"
+            Write-Host "  Type: $($app.resourceType)"
+
+            # Check current submissions
+            try {
+              $subs = Invoke-RestMethod `
+                -Uri "https://api.partner.microsoft.com/v1.0/ingestion/products/$appId/submissions" `
+                -Headers $headers -Method GET
+              $subList = $subs.value
+              Write-Host "  Submissions found: $($subList.Count)"
+              foreach ($sub in $subList) {
+                Write-Host "    - ID=$($sub.id) state=$($sub.state) subState=$($sub.subState)"
+              }
+
+              # If there's a pending submission, we can't create a new one
+              $pending = $subList | Where-Object { $_.state -eq "InProgress" -or $_.subState -eq "InReview" -or $_.subState -eq "Certification" }
+              if ($pending) {
+                Write-Host ""
+                Write-Host "::warning::There is a submission currently in progress/review."
+                Write-Host "::warning::You cannot submit an update until the current submission is processed."
+                Write-Host "::warning::Check status at: https://partner.microsoft.com/dashboard"
+                echo "HAS_MANAGED_APPS=false" >> $env:GITHUB_OUTPUT
+                echo "USE_REST_API=false" >> $env:GITHUB_OUTPUT
+                echo "PENDING_SUBMISSION=true" >> $env:GITHUB_OUTPUT
+              } else {
+                echo "HAS_MANAGED_APPS=true" >> $env:GITHUB_OUTPUT
+                echo "USE_REST_API=true" >> $env:GITHUB_OUTPUT
+              }
+            }
+            catch {
+              Write-Host "::warning::Could not query submissions: $_"
+              echo "HAS_MANAGED_APPS=false" >> $env:GITHUB_OUTPUT
+              echo "USE_REST_API=false" >> $env:GITHUB_OUTPUT
+            }
+          }
+          catch {
+            $statusCode = $_.Exception.Response.StatusCode.value__
+            Write-Host "::error::Partner Center API returned HTTP $statusCode"
+            Write-Host "::error::$_"
+
+            if ($statusCode -eq 404) {
+              Write-Host ""
+              Write-Host "App ID '$appId' was NOT found. Verify STORE_APP_ID secret is correct."
+              Write-Host "Find your App ID in Partner Center > Your app > Product Identity"
+            }
+            elseif ($statusCode -eq 401 -or $statusCode -eq 403) {
+              Write-Host ""
+              Write-Host "Access denied. The Azure AD app may not have the right permissions."
+              Write-Host "Verify in Partner Center > Account Settings > Azure AD applications"
+            }
+
+            echo "HAS_MANAGED_APPS=false" >> $env:GITHUB_OUTPUT
+            echo "USE_REST_API=false" >> $env:GITHUB_OUTPUT
           }
 
       # ── Publish ──
@@ -212,16 +297,25 @@ jobs:
 
           Write-Host "=== Done! Check Partner Center for submission status ==="
 
-      - name: Fail if no managed apps
+      - name: Fail if cannot publish
         if: steps.verify.outputs.HAS_MANAGED_APPS == 'false'
         shell: pwsh
         run: |
-          throw @"
-          Cannot publish: Partner Center API returned 'no managed apps'.
-          The first app submission must be certified via the Partner Center web UI
-          before the Store CLI can manage it.
-          See: https://learn.microsoft.com/windows/apps/publish/partner-center/create-your-app-by-reserving-a-name
+          if ("${{ steps.verify.outputs.PENDING_SUBMISSION }}" -eq "true") {
+            throw @"
+          Cannot publish: There is already a submission in progress (pending certification).
+          You must wait for the current submission to be approved or rejected before submitting an update.
+          Check status at: https://partner.microsoft.com/dashboard
           "@
+          } else {
+            throw @"
+          Cannot publish: The app was not found or is not accessible via the API.
+          Possible causes:
+            1. STORE_APP_ID is wrong — verify it in Partner Center > Product Identity
+            2. The Azure AD app doesn't have permissions — check Partner Center > Account Settings > Azure AD applications
+            3. PARTNER_CENTER_SELLER_ID is wrong — find the correct one in Partner Center > Account Settings > Organization profile > Legal info
+          "@
+          }
 
       # ── Poll submission status ──
       - name: Check submission status
