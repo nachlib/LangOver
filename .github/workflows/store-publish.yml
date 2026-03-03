@@ -86,6 +86,75 @@ jobs:
       - name: Setup MSStore Developer CLI
         uses: microsoft/setup-msstore-cli@v1
 
+      # ── Validate and log credential presence ──
+      - name: Validate credentials
+        shell: pwsh
+        run: |
+          $ok = $true
+          $guidPattern = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+
+          function Test-Secret($name, $value, $pattern) {
+            if ([string]::IsNullOrWhiteSpace($value)) {
+              Write-Host "::error::$name is EMPTY or NOT SET"
+              return $false
+            }
+            $len = $value.Length
+            Write-Host "$name is set (length: $len)"
+            if ($pattern -and $value -notmatch $pattern) {
+              Write-Host "::error::$name has invalid format (expected pattern: $pattern)"
+              return $false
+            }
+            Write-Host "  -> format OK"
+            return $true
+          }
+
+          Write-Host "=== Credential Format Check ==="
+          if (-not (Test-Secret "AZURE_TENANT_ID"          "${{ secrets.AZURE_TENANT_ID }}"          $guidPattern))  { $ok = $false }
+          if (-not (Test-Secret "AZURE_CLIENT_ID"           "${{ secrets.AZURE_CLIENT_ID }}"          $guidPattern))  { $ok = $false }
+          if (-not (Test-Secret "AZURE_CLIENT_SECRET"       "${{ secrets.AZURE_CLIENT_SECRET }}"      $null))         { $ok = $false }
+          if (-not (Test-Secret "PARTNER_CENTER_SELLER_ID"  "${{ secrets.PARTNER_CENTER_SELLER_ID }}" '^\d+$'))       { $ok = $false }
+
+          if (-not $ok) {
+            throw "One or more credentials are missing or have wrong format. Check Settings > Secrets and variables > Actions."
+          }
+          Write-Host "=== All 4 credentials are set with valid format ==="
+
+          # ── Actual authentication test against Azure AD ──
+          Write-Host ""
+          Write-Host "=== Testing Azure AD authentication ==="
+          $tenantId    = "${{ secrets.AZURE_TENANT_ID }}"
+          $clientId    = "${{ secrets.AZURE_CLIENT_ID }}"
+          $clientSecret = "${{ secrets.AZURE_CLIENT_SECRET }}"
+
+          $body = @{
+            grant_type    = "client_credentials"
+            client_id     = $clientId
+            client_secret = $clientSecret
+            scope         = "https://api.store.microsoft.com/.default"
+          }
+
+          try {
+            $response = Invoke-RestMethod `
+              -Uri "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token" `
+              -Method POST `
+              -ContentType "application/x-www-form-urlencoded" `
+              -Body $body
+
+            if ($response.access_token) {
+              Write-Host "Azure AD authentication SUCCEEDED — got a valid token"
+              Write-Host "Token type: $($response.token_type), expires in: $($response.expires_in)s"
+            } else {
+              throw "No access_token in response"
+            }
+          }
+          catch {
+            Write-Host "::error::Azure AD authentication FAILED: $_"
+            Write-Host ""
+            Write-Host "This means AZURE_TENANT_ID, AZURE_CLIENT_ID, or AZURE_CLIENT_SECRET is wrong."
+            Write-Host "Verify them in Azure Portal > App registrations > LangOver-Store-Publisher"
+            throw "Azure AD authentication failed — check credentials"
+          }
+
       # ── Configure credentials (reconfigure with all params to skip interactive prompts) ──
       - name: Configure Store credentials
         shell: pwsh
@@ -96,16 +165,34 @@ jobs:
             --clientId "${{ secrets.AZURE_CLIENT_ID }}" `
             --clientSecret "${{ secrets.AZURE_CLIENT_SECRET }}"
 
-      # ── Verify credentials work (non-fatal — new apps may have no submissions yet) ──
+      # ── Verify credentials work ──
       - name: Verify API access
+        id: verify
         shell: pwsh
-        continue-on-error: true
         run: |
           Write-Host "=== Verifying Partner Center API access ==="
-          msstore apps list 2>&1 | Out-String | Write-Host
+          $output = msstore apps list 2>&1 | Out-String
+          Write-Host $output
+
+          if ($output -match "no Managed apps|No applications found") {
+            Write-Host ""
+            Write-Host "::warning::No managed apps found in your Partner Center account."
+            Write-Host "::warning::This usually means the first submission has not been certified yet."
+            Write-Host "::warning::The Store Submission API can only manage apps that have been published at least once."
+            Write-Host ""
+            Write-Host "Possible fixes:"
+            Write-Host "  1. Complete the first submission via https://partner.microsoft.com/dashboard"
+            Write-Host "  2. Wait for certification to complete before using this workflow"
+            Write-Host "  3. Verify Azure AD app is linked in Partner Center > Account Settings > Azure AD applications"
+            Write-Host "  4. Verify PARTNER_CENTER_SELLER_ID is correct (find it in Partner Center > Account Settings > Organization profile)"
+            echo "HAS_MANAGED_APPS=false" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "HAS_MANAGED_APPS=true" >> $env:GITHUB_OUTPUT
+          }
 
       # ── Publish ──
       - name: Publish to Microsoft Store
+        if: steps.verify.outputs.HAS_MANAGED_APPS == 'true'
         shell: pwsh
         run: |
           $appId = "${{ steps.appid.outputs.APP_ID }}"
@@ -125,9 +212,20 @@ jobs:
 
           Write-Host "=== Done! Check Partner Center for submission status ==="
 
+      - name: Fail if no managed apps
+        if: steps.verify.outputs.HAS_MANAGED_APPS == 'false'
+        shell: pwsh
+        run: |
+          throw @"
+          Cannot publish: Partner Center API returned 'no managed apps'.
+          The first app submission must be certified via the Partner Center web UI
+          before the Store CLI can manage it.
+          See: https://learn.microsoft.com/windows/apps/publish/partner-center/create-your-app-by-reserving-a-name
+          "@
+
       # ── Poll submission status ──
       - name: Check submission status
-        if: success()
+        if: steps.verify.outputs.HAS_MANAGED_APPS == 'true'
         shell: pwsh
         continue-on-error: true
         run: |
