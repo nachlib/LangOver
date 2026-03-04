@@ -292,7 +292,7 @@ jobs:
 
           if ($LASTEXITCODE -ne 0) {
             Write-Host "=== Submission update failed, trying publish command ==="
-            msstore publish $appId --inputDirectory "store-upload"
+            msstore publish --appId $appId --inputDirectory "store-upload" --tenant-id $env:PARTNER_CENTER_TENANT_ID --seller-id $env:PARTNER_CENTER_SELLER_ID --client-id $env:PARTNER_CENTER_CLIENT_ID --client-secret $env:PARTNER_CENTER_CLIENT_SECRET
           }
 
           Write-Host "=== Done! Check Partner Center for submission status ==="
