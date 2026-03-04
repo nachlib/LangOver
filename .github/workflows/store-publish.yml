@@ -130,7 +130,7 @@ jobs:
             grant_type    = "client_credentials"
             client_id     = $clientId
             client_secret = $clientSecret
-            scope         = "https://api.store.microsoft.com/.default"
+            scope         = "https://api.partner.microsoft.com/.default"
           }
 
           try {
@@ -203,7 +203,7 @@ jobs:
             grant_type    = "client_credentials"
             client_id     = $clientId
             client_secret = $clientSecret
-            scope         = "https://api.store.microsoft.com/.default"
+            scope         = "https://api.partner.microsoft.com/.default"
           }
           $tokenResp = Invoke-RestMethod `
             -Uri "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token" `
@@ -282,17 +282,16 @@ jobs:
         run: |
           $appId = "${{ steps.appid.outputs.APP_ID }}"
           Write-Host "Publishing to Store App: $appId"
-          Write-Host "Input directory contents:"
-          Get-ChildItem "store-upload" | Format-Table Name, Length
-
-          # Try submission update first; if it fails (no existing submission), try publish
-          Write-Host "=== Attempting submission update ==="
-          $result = msstore submission update $appId --inputDirectory "store-upload" 2>&1 | Out-String
-          Write-Host $result
-
+          msstore publish `
+            --appId $appId `
+            --inputDirectory "store-upload" `
+            --tenant-id $env:PARTNER_CENTER_TENANT_ID `
+            --seller-id $env:PARTNER_CENTER_SELLER_ID `
+            --client-id $env:PARTNER_CENTER_CLIENT_ID `
+            --client-secret $env:PARTNER_CENTER_CLIENT_SECRET
+          
           if ($LASTEXITCODE -ne 0) {
-            Write-Host "=== Submission update failed, trying publish command ==="
-            msstore publish --appId $appId --inputDirectory "store-upload" --tenant-id $env:PARTNER_CENTER_TENANT_ID --seller-id $env:PARTNER_CENTER_SELLER_ID --client-id $env:PARTNER_CENTER_CLIENT_ID --client-secret $env:PARTNER_CENTER_CLIENT_SECRET
+            throw "Publishing to Microsoft Store failed."
           }
 
           Write-Host "=== Done! Check Partner Center for submission status ==="
