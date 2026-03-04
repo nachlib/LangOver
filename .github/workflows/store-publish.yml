@@ -130,7 +130,7 @@ jobs:
             grant_type    = "client_credentials"
             client_id     = $clientId
             client_secret = $clientSecret
-            scope         = "https://api.partner.microsoft.com/"
+            resource         = "https://api.partner.microsoft.com"
           }
 
           try {
@@ -203,7 +203,7 @@ jobs:
             grant_type    = "client_credentials"
             client_id     = $clientId
             client_secret = $clientSecret
-            scope         = "https://api.partner.microsoft.com/"
+            resource         = "https://api.partner.microsoft.com"
           }
           $tokenResp = Invoke-RestMethod `
             -Uri "https://login.microsoftonline.com/$tenantId/oauth2/token" `
