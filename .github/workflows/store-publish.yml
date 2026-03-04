@@ -175,7 +175,7 @@ jobs:
           # ── Step 1: Try msstore CLI (uses Submission API v1 — only works for published apps) ──
           Write-Host "--- Testing msstore CLI (Submission API v1) ---"
           $env:ErrorActionPreference = "Continue"
-          $output = msstore apps list --tenant-id $env:PARTNER_CENTER_TENANT_ID --seller-id $env:PARTNER_CENTER_SELLER_ID --client-id $env:PARTNER_CENTER_CLIENT_ID --client-secret $env:PARTNER_CENTER_CLIENT_SECRET 2>&1 | Out-String
+          $output = msstore apps list 2>&1 | Out-String
           $cliExitCode = $LASTEXITCODE
           # Strip ANSI escape codes for reliable matching
           $cleanOutput = $output -replace '\x1b\[[0-9;]*m', ''
